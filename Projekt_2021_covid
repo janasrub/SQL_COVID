@@ -1,0 +1,275 @@
+#----------------------------------------------------------------------
+#projekt
+	
+# Èasové promìnné - binární promìnná pro víkend / pracovní den
+
+CREATE OR REPLACE VIEW v_den_vikend as
+/*
+SELECT *, 
+	CASE 
+		WHEN dayname(`date`) BETWEEN 'Monday' AND 'Friday' THEN 'pracovní_den'
+		ELSE 'víkend'
+		END AS pracovni_den_vikend
+FROM covid19_basic_differences cbd
+*/
+
+#druhá verze:
+CREATE OR REPLACE VIEW v_den_vikend as
+SELECT *, 
+	CASE 
+		WHEN weekday(`date`) IN (5,6) THEN '1'
+		ELSE '0'
+		END AS vikend
+FROM covid19_basic_differences cbd
+
+
+SELECT *
+FROM v_den_vikend vdv 
+
+#--------------------------------------------------------------------------
+
+
+#roèní období roèní období daného dne (zakódujte prosím jako 0 až 3)
+/* zjištìní èasového období tabulky
+SELECT min(`date`),max(`date`) 
+FROM covid19_basic_differences cbd; 
+*/
+# mùžu vytvoøit i tabulku
+CREATE TABLE rocni_obdobi AS
+	SELECT 
+		date, country ,
+		CASE
+		WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3 zima'
+		WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0 jaro'
+		WHEN `date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1 leto'
+		WHEN `date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2 podzim'
+		WHEN `date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3 zima'
+		WHEN `date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0 jaro'
+		ELSE 'error'
+		END AS rocni_obdobi
+	FROM covid19_basic_differences
+	ORDER BY `date` 
+	;
+#-----------------------------------------------------------------------------	
+SELECT *
+FROM rocni_obdobi ro 
+
+#------------------------------------------------------------------------------
+#eventuelnì existuje tabulka seasons, kde je jaro 1, leto 2, podzim 3 a zima 0
+#zde ovìøení, že 3 je podzim
+SELECT max(s.`date`),  min(s.`date`)
+FROM covid19_basic_differences cbd 
+JOIN seasons s 
+	ON cbd.`date` = s.`date` 
+	WHERE s.seasons = '3'	
+	;
+#------------------------------------------------------------------------------	
+
+CREATE OR REPLACE VIEW v_rocni_obd AS
+	SELECT 
+		date, country ,
+		CASE
+		WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3 zima'
+		WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0 jaro'
+		WHEN `date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1 leto'
+		WHEN `date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2 podzim'
+		WHEN `date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3 zima'
+		WHEN `date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0 jaro'
+		ELSE 'error'
+		END AS rocni_obdobi
+	FROM covid19_basic_differences
+	
+
+# pohled - roèní období	- kontrola zima
+SELECT *
+FROM v_rocni_obd vro 
+WHERE rocni_obdobi LIKE '3%'
+
+
+# hotovo 
+SELECT vdv.*, vro.rocni_obdobi 
+FROM v_den_vikend vdv 
+JOIN v_rocni_obd vro 
+ 	ON vdv.`date` = vro.`date` 
+ 	AND vdv.country = vro.country 
+
+# pohled 2 promìnné specifické pro daný stát
+ 	
+# hustota zalidnìní - ve státech s vyšší hustotou zalidnìní se nákaza mùže šíøit rychleji
+
+
+#hustota zalidneni v jednotlivých letech
+SELECT
+	d.country ,
+	d.`year` ,
+	round(d.population / c.surface_area,2) AS hustota_zalidneni,
+	e.GDP ,
+	e.gini ,
+	d.mortaliy_under5 ,
+	ma.median_age_2018 
+FROM demographics d 
+	JOIN countries c 
+	ON d.country = c.country 
+	JOIN median_age ma 
+	ON c.iso_numeric = ma.iso_numeric 
+	JOIN economies e 
+	ON d.country = e.country 
+	AND d.`year` = e.`year` 
+	WHERE d.population IS NOT NULL AND c.region_in_world IS NOT NULL
+	
+#nabozenstvi
+SELECT r. country , r.religion, round(population /relig_suma.celkem_pop*100,2) 
+FROM religions r 
+JOIN 
+	(SELECT r.country , r.`year` ,sum(r.population) AS celkem_pop 						#vnoreným selektem poèítám sumu jednotlivých náboženství v roce 2020, abych ji pak mohla použít pro procentuální podíl jednotlivých náboženství
+		FROM religions r 
+		WHERE `year` = '2020'
+		GROUP BY r.country 
+	) AS relig_suma
+ON r.country = relig_suma.country
+AND r.`year` = relig_suma.`year`
+AND r.population > 0
+
+#dožití
+CREATE OR REPLACE VIEW v_rok_1965 AS
+ 	(
+ 	SELECT * 
+ 	FROM life_expectancy le 
+	WHERE `year` = '1965' AND iso3 IS NOT NULL 
+	);
+
+SELECT * FROM v_rok_1965 
+
+CREATE OR REPLACE VIEW v_rok_2015 AS
+ 	(
+ 	SELECT * 
+ 	FROM life_expectancy le 
+	WHERE `year` = '2015' AND iso3 IS NOT NULL 
+	);
+
+SELECT * FROM v_rok_2015
+
+SELECT v_65.country, round(v_15.life_expectancy - v_65.life_expectancy,2) AS life_exp_dif
+FROM v_rok_1965 AS v_65
+JOIN v_rok_2015 AS v_15
+	ON v_65.country = v_15.country
+ORDER BY country	
+
+
+
+#nabozenstvi
+SELECT r. country , r.religion, round(population /relig_suma.celkem_pop*100,2) 
+FROM religions r 
+JOIN 
+	(SELECT r.country , r.`year` ,sum(r.population) AS celkem_pop 						#vnoreným selektem poèítám sumu jednotlivých náboženství v roce 2020, abych ji pak mohla použít pro procentuální podíl jednotlivých náboženství
+		FROM religions r 
+		WHERE `year` = '2020'
+		GROUP BY r.country 
+	) AS relig_suma
+ON r.country = relig_suma.country
+AND r.`year` = relig_suma.`year`
+AND r.population > 0
+
+#3. pocasi
+#Poèasí (ovlivòuje chování lidí a také schopnost šíøení viru)
+
+#prùmìrná denní (nikoli noèní!) teplota
+/*
+SELECT city , round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature, `date` 
+FROM weather w 
+WHERE city IS NOT NULL AND `time` BETWEEN '06:00' AND '21:00'
+GROUP BY `date` , city
+*/
+/*ovìøení na Amsterdamu
+SELECT city , cast ((REPLACE (temp,'°c',' ')) AS integer) AS temperature , `date` , `time` 
+FROM weather w 
+WHERE `time` BETWEEN '06:00' AND '21:00' AND city = 'Amsterdam'
+ORDER BY `date`
+
+prùmìr:
+SELECT city , round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature, `date` 
+FROM weather w 
+WHERE `time` BETWEEN '06:00' AND '21:00' AND city = 'Amsterdam'
+GROUP BY `date` , city
+*/
+
+
+#poèet hodin v daném dni, kdy byly srážky nenulové
+/*
+SELECT city , `date` , count(rain) AS pocet_hodin_prsi
+FROM weather w 
+WHERE rain > 0 AND city IS NOT NULL 
+GROUP BY city, `date`
+*/
+
+/* ovìøení, V Amsterdamu pršelo 3.1.2020 6x tj v každou sledovanou hodinu byly srážky.
+SELECT city , `date` , time, rain 
+FROM weather w 
+WHERE rain > 0 AND city = 'Amsterdam'
+ORDER BY `date`
+*/
+
+
+#maximální síla vìtru v nárazech bìhem dne
+/*
+SELECT city, `date` , max(gust) 
+FROM weather w 
+WHERE city IS NOT null
+GROUP BY `date` , city 
+*/
+
+/* ovìøení na Amsterdamu
+SELECT city , `date` , time, gust
+FROM weather w 
+WHERE city = 'Amsterdam'
+ORDER BY `date` 
+*/	
+
+/*Poèasí
+prùmìrná denní (nikoli noèní!) teplota
+*/
+CREATE OR REPLACE VIEW v_prum_denni_teplota AS
+SELECT 
+	city ,
+	round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature,
+	date(`date`) AS datum,
+	count(rain) AS pocet_hodin_prsi
+FROM weather w 
+WHERE city IS NOT NULL AND `time` BETWEEN '06:00' AND '21:00'
+GROUP BY city, `date`
+
+/*Poèasí
+poèet hodin v daném dni, kdy byly srážky nenulové
+*/
+CREATE OR REPLACE VIEW v_kdyz_prselo AS
+SELECT
+	city , 
+	`date` ,
+	count(rain) AS pocet_hodin_prsi
+FROM weather w 
+WHERE rain > 0 AND city IS NOT NULL 
+GROUP BY city, `date`
+
+/*Poèasí
+maximální síla vìtru v nárazech bìhem dne
+*/
+CREATE OR REPLACE VIEW v_sila_vetru AS
+SELECT 
+	city,
+	`date` ,
+	max(gust) AS max_naraz_vitr
+FROM weather w 
+WHERE city IS NOT null
+GROUP BY `date` , city 
+
+# celé poèasí spojené do jednoho selectu
+
+SELECT pt.datum, pt.city, pt.temperature ,vkp.pocet_hodin_prsi, vsv.max_naraz_vitr 
+FROM v_prum_denni_teplota pt 
+JOIN v_kdyz_prselo vkp
+	ON pt.city = vkp.city 
+	AND pt.datum = vkp.`date` 
+JOIN v_sila_vetru vsv 
+	ON vsv.city = pt.city 
+	AND vsv.`date` = pt.datum 
+ORDER BY temperature 	
