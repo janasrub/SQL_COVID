@@ -92,6 +92,112 @@ FROM v_den_vikend vdv
 JOIN v_rocni_obd vro 
  	ON vdv.`date` = vro.`date` 
  	AND vdv.country = vro.country 
+ 	
+ 	
+ 	 	
+#dohromady,finálni select, nazvy sloupcù anglicky
+SELECT *, 
+CASE 
+	WHEN weekday(`date`) IN (5,6) THEN '1'
+	ELSE '0'
+	END AS weekend,
+CASE
+	WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3'
+	WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0'
+	WHEN `date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1'
+	WHEN `date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2'
+	WHEN `date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3'
+	WHEN `date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0'
+	ELSE 'error'
+	END AS seasons
+FROM covid19_basic_differences cbd
+
+
+ 	
+ 	
+ 	
+#spojení s covid test pøes country codes, protože napø. v tabulce covid test mìlo èesko jiný název a nešlo by spojit podle country jen ty dvì 
+SELECT
+	cbd.`date` ,
+	cbd.country,
+	cbd.confirmed ,
+	ct.tests_performed 
+FROM covid19_basic_differences cbd 
+JOIN country_codes cc 
+	ON cbd.country = cc.country 	
+JOIN covid19_tests ct 
+	ON cc.iso3 = ct.ISO  	
+ 	
+#spojení obou
+	
+CREATE OR REPLACE VIEW v_1_cast AS
+SELECT 
+	cbd.`date` ,
+	cbd.country,
+	cbd.confirmed ,
+	ct.tests_performed , 
+	YEAR (cbd.`date`) AS rok,
+CASE 
+	WHEN weekday(cbd.`date`) IN (5,6) THEN '1'
+	ELSE '0'
+	END AS weekend,
+CASE
+	WHEN cbd.`date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3'
+	WHEN cbd.`date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0'
+	WHEN cbd.`date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1'
+	WHEN cbd.`date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2'
+	WHEN cbd.`date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3'
+	WHEN cbd.`date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0'
+	ELSE 'error'
+	END AS seasons
+FROM covid19_basic_differences cbd
+JOIN country_codes cc 
+	ON cbd.country = cc.country 	
+JOIN covid19_tests ct 
+	ON cc.iso3 = ct.ISO  
+	
+#tabulka	
+CREATE OR REPLACE TABLE t_1_cast AS
+SELECT 
+	cbd.`date` ,
+	cbd.country,
+	cbd.confirmed ,
+	ct.tests_performed , 
+	YEAR (cbd.`date`) AS rok,
+CASE 
+	WHEN weekday(cbd.`date`) IN (5,6) THEN '1'
+	ELSE '0'
+	END AS weekend,
+CASE
+	WHEN cbd.`date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3'
+	WHEN cbd.`date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0'
+	WHEN cbd.`date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1'
+	WHEN cbd.`date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2'
+	WHEN cbd.`date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3'
+	WHEN cbd.`date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0'
+	ELSE 'error'
+	END AS seasons
+FROM covid19_basic_differences cbd
+JOIN country_codes cc 
+	ON cbd.country = cc.country 	
+JOIN covid19_tests ct 
+	ON cc.iso3 = ct.ISO  	
+ 	
+SELECT * FROM t_1_cast tc 
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
 
 # pohled 2 promìnné specifické pro daný stát
  	
@@ -99,9 +205,11 @@ JOIN v_rocni_obd vro
 
 
 #hustota zalidneni v jednotlivých letech
+CREATE OR REPLACE VIEW v_2_cast AS
 SELECT
 	d.country ,
 	d.`year` ,
+	d.population ,
 	round(d.population / c.surface_area,2) AS hustota_zalidneni,
 	e.GDP ,
 	e.gini ,
@@ -116,6 +224,42 @@ FROM demographics d
 	ON d.country = e.country 
 	AND d.`year` = e.`year` 
 	WHERE d.population IS NOT NULL AND c.region_in_world IS NOT NULL
+	
+CREATE OR REPLACE TABLE t_2_cast AS
+SELECT
+	d.country ,
+	d.`year` ,
+	d.population ,
+	round(d.population / c.surface_area,2) AS hustota_zalidneni,
+	e.GDP ,
+	e.gini ,
+	d.mortaliy_under5 ,
+	ma.median_age_2018 
+FROM demographics d 
+	JOIN countries c 
+	ON d.country = c.country 
+	JOIN median_age ma 
+	ON c.iso_numeric = ma.iso_numeric 
+	JOIN economies e 
+	ON d.country = e.country 
+	AND d.`year` = e.`year` 
+	WHERE d.population IS NOT NULL AND c.region_in_world IS NOT NULL	
+	
+	
+SELECT * FROM v_2_cast vc 
+
+SELECT * FROM t_2_cast tc 
+
+SELECT * FROM t_1_cast tc1
+
+
+SELECT * FROM t_1_cast tc1
+JOIN t_2_cast tc2 
+	ON tc1.country = tc2.country 
+	AND tc1.rok = tc2.`year` 
+
+	
+
 	
 #nabozenstvi
 SELECT r. country , r.religion, round(population /relig_suma.celkem_pop*100,2) 
@@ -257,14 +401,14 @@ CREATE OR REPLACE VIEW v_sila_vetru AS
 SELECT 
 	city,
 	`date` ,
-	max(gust) AS max_naraz_vitr
+	max(gust) AS max_naraz
 FROM weather w 
 WHERE city IS NOT null
 GROUP BY `date` , city 
 
 # celé poèasí spojené do jednoho selectu
 
-SELECT pt.datum, pt.city, pt.temperature ,vkp.pocet_hodin_prsi, vsv.max_naraz_vitr 
+SELECT pt.datum, pt.city, pt.temperature ,vkp.pocet_hodin_prsi, vsv.max_naraz
 FROM v_prum_denni_teplota pt 
 JOIN v_kdyz_prselo vkp
 	ON pt.city = vkp.city 
@@ -272,4 +416,4 @@ JOIN v_kdyz_prselo vkp
 JOIN v_sila_vetru vsv 
 	ON vsv.city = pt.city 
 	AND vsv.`date` = pt.datum 
-ORDER BY temperature 	
+	
