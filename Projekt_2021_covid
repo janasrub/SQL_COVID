@@ -118,15 +118,17 @@ FROM covid19_basic_differences cbd
  	
 #spojení s covid test pøes country codes, protože napø. v tabulce covid test mìlo èesko jiný název a nešlo by spojit podle country jen ty dvì 
 SELECT
-	cbd.`date` ,
-	cbd.country,
-	cbd.confirmed ,
-	ct.tests_performed 
+	count(cbd.`date`)
+	#cbd.country,
+	#cbd.confirmed
+	#ct.tests_performed 
 FROM covid19_basic_differences cbd 
-JOIN country_codes cc 
+LEFT JOIN country_codes cc 
 	ON cbd.country = cc.country 	
-JOIN covid19_tests ct 
+LEFT JOIN covid19_tests ct 
 	ON cc.iso3 = ct.ISO  	
+	AND cbd.`date` = ct.`date` 
+	
  	
 #spojení obou
 	
@@ -176,14 +178,22 @@ CASE
 	WHEN cbd.`date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3'
 	WHEN cbd.`date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0'
 	ELSE 'error'
-	END AS seasons
+	END AS seasons,
+	ct.ISO ,
+	cc.iso3 
 FROM covid19_basic_differences cbd
-JOIN country_codes cc 
+LEFT JOIN country_codes cc 
 	ON cbd.country = cc.country 	
-JOIN covid19_tests ct 
+LEFT JOIN covid19_tests ct 
 	ON cc.iso3 = ct.ISO  	
+ 	AND ct.`date` = cbd.`date` 
+ 	
  	
 SELECT * FROM t_1_cast tc 
+WHERE country = 'Austria'
+ORDER BY `date` 
+
+
  	
  	
  	
@@ -208,7 +218,7 @@ SELECT * FROM t_1_cast tc
 CREATE OR REPLACE VIEW v_2_cast AS
 SELECT
 	d.country ,
-	d.`year` ,
+	'd.`year`',
 	d.population ,
 	round(d.population / c.surface_area,2) AS hustota_zalidneni,
 	e.GDP ,
@@ -226,38 +236,49 @@ FROM demographics d
 	WHERE d.population IS NOT NULL AND c.region_in_world IS NOT NULL
 	
 CREATE OR REPLACE TABLE t_2_cast AS
-SELECT
-	d.country ,
-	d.`year` ,
-	d.population ,
-	round(d.population / c.surface_area,2) AS hustota_zalidneni,
-	e.GDP ,
-	e.gini ,
-	d.mortaliy_under5 ,
-	ma.median_age_2018 
-FROM demographics d 
-	JOIN countries c 
-	ON d.country = c.country 
-	JOIN median_age ma 
-	ON c.iso_numeric = ma.iso_numeric 
-	JOIN economies e 
+SELECT 
+	e.population ,
+	e.country ,
+	e.`year` ,
+	round(e.population / c.surface_area,2) AS hustota_zalidneni,
+	e.GDP ,				#údaje z roku 2020
+	e.gini ,			#hodnì údajù chybí
+	d.mortaliy_under5 , #údaje z roku 2019
+	c.median_age_2018 
+FROM economies e 
+JOIN countries c 
+	ON e.country = c.country 
+JOIN demographics d 
 	ON d.country = e.country 
-	AND d.`year` = e.`year` 
-	WHERE d.population IS NOT NULL AND c.region_in_world IS NOT NULL	
+	AND d.`year` = 2019
+WHERE e.`year` = 2020
 	
 	
-SELECT * FROM v_2_cast vc 
+	
 
-SELECT * FROM t_2_cast tc 
-
-SELECT * FROM t_1_cast tc1
-
-
-SELECT * FROM t_1_cast tc1
+SELECT 
+	tc1.country,
+	tc1.`date` ,
+	tc1.weekend ,
+	tc1.seasons ,
+	tc1.confirmed ,
+	tc1.tests_performed ,
+	round(tc1.confirmed / tc2.population * 100,4) AS confirmed_proc ,
+	round(tc1.tests_performed / tc2.population * 100,4) AS tests_performed_proc ,
+	tc2.population ,
+	tc2.GDP ,
+	tc2.gini ,
+	tc2.mortaliy_under5 ,
+	tc2.median_age_2018 
+	FROM t_1_cast 
+	tc1
 JOIN t_2_cast tc2 
 	ON tc1.country = tc2.country 
 	AND tc1.rok = tc2.`year` 
 
+ 
+	
+	
 	
 
 	
@@ -273,32 +294,6 @@ JOIN
 ON r.country = relig_suma.country
 AND r.`year` = relig_suma.`year`
 AND r.population > 0
-
-#dožití
-CREATE OR REPLACE VIEW v_rok_1965 AS
- 	(
- 	SELECT * 
- 	FROM life_expectancy le 
-	WHERE `year` = '1965' AND iso3 IS NOT NULL 
-	);
-
-SELECT * FROM v_rok_1965 
-
-CREATE OR REPLACE VIEW v_rok_2015 AS
- 	(
- 	SELECT * 
- 	FROM life_expectancy le 
-	WHERE `year` = '2015' AND iso3 IS NOT NULL 
-	);
-
-SELECT * FROM v_rok_2015
-
-SELECT v_65.country, round(v_15.life_expectancy - v_65.life_expectancy,2) AS life_exp_dif
-FROM v_rok_1965 AS v_65
-JOIN v_rok_2015 AS v_15
-	ON v_65.country = v_15.country
-ORDER BY country	
-
 
 
 #nabozenstvi

@@ -1,0 +1,52 @@
+#nabozenstvi
+
+CREATE OR REPLACE VIEW v_nabozenstvi as
+SELECT
+	r.country ,
+	sum(r.population),
+	sum(CASE WHEN r.religion = 'Christianity' THEN r.population 
+	END)AS Christianity, 
+	sum(CASE WHEN r.religion = 'Islam' THEN r.population 
+	END) AS Islam,
+	sum(CASE WHEN r.religion = 'Buddhism' THEN r.population 
+	END) AS Buddhism,
+	sum(CASE WHEN r.religion = 'Hinduism' THEN r.population 
+	END) AS Hinduism,
+	sum(CASE WHEN r.religion = 'Judaism' THEN r.population 
+	END) AS Judaism,
+	sum(CASE WHEN r.religion = 'Folk Religions' THEN r.population 
+	END) AS Folk_Religions,
+	sum(CASE WHEN r.religion = 'Other Religions' THEN r.population 
+	END) AS Other_Religions,
+	sum(CASE WHEN r.religion = 'Unaffiliated Religions' THEN r.population 
+	END) AS Unaffiliated_Religions
+FROM religions r
+WHERE `year` = 2020
+GROUP BY country
+
+
+SELECT 
+country ,
+round(Christianity / `sum(r.population)` *100,2) AS Christianity,
+round(Islam / `sum(r.population)` *100,2) AS Islam,
+round(Buddhism / `sum(r.population)` *100,2) AS Buddhism,
+round(Hinduism / `sum(r.population)` *100,2) AS Hinduism,
+round(Judaism / `sum(r.population)` *100,2) AS Judaism,
+round(Folk_Religions / `sum(r.population)` *100,2) Folk_Religions,
+round(Other_Religions / `sum(r.population)` *100,2) AS Other_Religions,
+round(Unaffiliated_Religions / `sum(r.population)` *100,2) AS Unaffiliated_Religions
+FROM v_nabozenstvi vn 
+
+
+
+
+
+
+
+round(Other_Religions / `sum(r.population)` *100,2) AS Other_Religions,
+
+
+
+
+
+
