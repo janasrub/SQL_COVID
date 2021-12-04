@@ -1,37 +1,69 @@
 # Èasové promìnné - binární promìnná pro víkend / pracovní den
-SELECT *, 
+SELECT DISTINCT date,
 	CASE 
 		WHEN weekday(`date`) IN (5,6) THEN '1'
 		ELSE '0'
-		END AS vikend
+		END AS weekend
 FROM covid19_basic_differences cbd
 ;
 
 
 #roèní období roèní období daného dne (zakódujte prosím jako 0 až 3)
 SELECT 
-	date, country ,
+	DISTINCT date, 
 	CASE
-	WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3 zima'
-	WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0 jaro'
-	WHEN `date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1 leto'
-	WHEN `date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2 podzim'
-	WHEN `date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3 zima'
-	WHEN `date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0 jaro'
+	WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3'
+	WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0'
+	WHEN `date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1'
+	WHEN `date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2'
+	WHEN `date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3'
+	WHEN `date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0'
 	ELSE 'error'
-	END AS rocni_obdobi
+	END AS seison
 FROM covid19_basic_differences
 ORDER BY `date` 
 ;
 
-#spojení s testy, výpoèet, hustota obyvatel, prùmìrný vìk 2018, 
+#èasové promìnné dohromady
+CREATE OR REPLACE TABLE t_01_day_season as
+SELECT 
+	DISTINCT date, 
+	CASE
+	WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3'
+	WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0'
+	WHEN `date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1'
+	WHEN `date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2'
+	WHEN `date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3'
+	WHEN `date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0'
+	ELSE 'error'
+	END AS season,
+	CASE 
+		WHEN weekday(`date`) IN (5,6) THEN '1'
+		ELSE '0'
+		END AS weekend
+FROM covid19_basic_differences
+ORDER BY `date` 
+;
+
+#èasové promìnné dohromady
+
+
+##############################################################################
+
+#spojení s testy, výpoèet, hustota obyvatel, prùmìrný vìk 2018,
+
+CREATE OR REPLACE TABLE t_02_tests AS 
 SELECT
 	cbd.`date`,
 	cbd.country,
 	cbd.confirmed,
+	cbd.confirmed/c.population*100 AS percentagge_confirmed, 
 	ct.tests_performed,
-	c.population,
-	c.median_age_2018 
+	ct.tests_performed/c.population*100 AS percentage_tests_performed,
+	c.median_age_2018,
+	c.iso3 ,
+	ct.ISO ,
+	c.capital_city 
 FROM covid19_basic_differences cbd 
 LEFT JOIN country_codes cc 
 	ON cbd.country = cc.country 
@@ -40,26 +72,33 @@ LEFT JOIN countries c
 LEFT JOIN covid19_tests ct 
 	ON cc.iso3 = ct.ISO  	
 	AND cbd.`date` = ct.`date` 
-WHERE cbd.country LIKE 'Cz%'	
+WHERE c.population IS NOT NULL 
+
+SELECT * FROM t_02_tests tt 
 	
 SELECT * FROM countries c 
+
+SELECT
+FROM covid19_tests ct 
 
 #################################################
 SELECT * FROM covid19_basic_differences cbd 
 WHERE country LIKE 'Cz%'
 
-SELECT * FROM t_2_cast tc 
-WHERE country LIKE 'Cz%'	
+SELECT *
+FROM t_01_day_season tds 
 #################################################
 
-#hustota zalidneni, GDP, GINI, dìtská umrtnost
+#country, rok, hustota zalidneni, GDP, GINI, dìtská umrtnost
+CREATE OR REPLACE TABLE t_03_demo_economics as
 SELECT
 	d.country ,
 	d.`year`,
-	round(d.population / c.surface_area,2) AS hustota_zalidneni,
+	round(d.population / c.surface_area,2) AS population_density,
 	e.GDP ,
 	e.gini ,
-	d.mortaliy_under5 
+	d.mortaliy_under5, 
+	c.iso3 
 FROM demographics d 
 	JOIN countries c 
 	ON d.country = c.country 
@@ -68,20 +107,9 @@ FROM demographics d
 	AND d.`year` = e.`year` 
 WHERE d.population IS NOT NULL AND c.region_in_world IS NOT NULL AND d.`year` = 2019
 	
+SELECT * FROM t_03_demo_economics tde 	
 	
-	
-#nabozenstvi
-SELECT r. country , r.religion, round(population /relig_suma.celkem_pop*100,2) AS religion_perc_share
-FROM religions r 
-JOIN 
-	(SELECT r.country , r.`year` ,sum(r.population) AS celkem_pop 						#vnoreným selektem poèítám sumu jednotlivých náboženství v roce 2020, abych ji pak mohla použít pro procentuální podíl jednotlivých náboženství
-		FROM religions r 
-		WHERE `year` = '2020'
-		GROUP BY r.country 
-	) AS relig_suma
-ON r.country = relig_suma.country
-AND r.`year` = relig_suma.`year`
-AND r.population > 0
+
 
 
 #dožití
@@ -103,88 +131,93 @@ CREATE OR REPLACE VIEW v_rok_2015 AS
 
 SELECT * FROM v_rok_2015
 
-SELECT v_65.country, round(v_15.life_expectancy - v_65.life_expectancy,2) AS life_exp_dif
+
+
+CREATE OR REPLACE TABLE T_04_life_exp_dif AS
+SELECT
+	v_65.country, 
+	round(v_15.life_expectancy - v_65.life_expectancy,2) AS life_exp_dif,
+	v_65.iso3 
 FROM v_rok_1965 AS v_65
 JOIN v_rok_2015 AS v_15
 	ON v_65.country = v_15.country
-ORDER BY country	
+ORDER BY country
 
+SELECT * FROM t_04_life_exp_dif tled 
 
+##################################################
 /*Poèasí
 prùmìrná denní (nikoli noèní!) teplota
 */
-CREATE OR REPLACE VIEW v_prum_denni_teplota AS
+###############################################
+CREATE OR REPLACE TABLE t_prum_denni_teplota AS
 SELECT 
 	city ,
 	round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature,
-	date(`date`) AS datum,
-	count(rain) AS pocet_hodin_prsi
+	date(`date`) AS datum
 FROM weather w 
 WHERE city IS NOT NULL AND `time` BETWEEN '06:00' AND '21:00'
 GROUP BY city, `date`
 
+
 /*Poèasí
 poèet hodin v daném dni, kdy byly srážky nenulové
 */
-CREATE OR REPLACE VIEW v_kdyz_prselo AS
+##############################################
+#nejdøíve vytvoøím pomocnou tabulku, kde na èíslo pøevedu rain - všechny data
+CREATE OR REPLACE table t_prsi_pomocna AS
 SELECT
 	city , 
-	`date` ,
-	count(rain) AS pocet_hodin_prsi
+	date(`date`) AS datum,
+	round(CAST((REPLACE (rain,' mm',''))AS float),2) AS prselo
 FROM weather w 
-WHERE rain > 0 AND city IS NOT NULL 
-GROUP BY city, `date`
+
+#pak vytvoøím z pomocné tabulky druhou tabulku, ve které spoèítám kolik hodin pršelo v jednotlivých dnech
+CREATE OR REPLACE table t_prsi AS
+SELECT
+	city , 
+	datum,
+	count(prselo) AS pocet_hodin_prsi
+FROM t_prsi_pomocna tpp 
+WHERE city IS NOT NULL AND prselo > 0
+GROUP BY city, `datum`	
+
 
 /*Poèasí
 maximální síla vìtru v nárazech bìhem dne
 */
-CREATE OR REPLACE VIEW v_sila_vetru AS
+################################################
+CREATE OR REPLACE TABLE t_sila_vetru AS
 SELECT 
 	city,
 	`date` ,
-	max(gust) AS max_naraz
+	max(CAST((REPLACE (gust,'km/h',''))AS integer)) AS max_naraz
 FROM weather w 
 WHERE city IS NOT null
 GROUP BY `date` , city 
 
-# celé poèasí spojené do jednoho selectu
 
-SELECT pt.datum, pt.city, pt.temperature ,vkp.pocet_hodin_prsi, vsv.max_naraz
-FROM v_prum_denni_teplota pt 
-JOIN v_kdyz_prselo vkp
-	ON pt.city = vkp.city 
-	AND pt.datum = vkp.`date` 
-JOIN v_sila_vetru vsv 
-	ON vsv.city = pt.city 
-	AND vsv.`date` = pt.datum 
+################################################
+
+# celé poèasí spojené do jednoho selectu
+CREATE OR REPLACE TABLE t_05_weather as
+SELECT tpdt.datum, tpdt.city, tpdt.temperature ,tp.pocet_hodin_prsi , tsv.max_naraz
+FROM t_prum_denni_teplota tpdt 
+LEFT JOIN t_prsi tp 
+	ON tpdt.city = tp.city 
+	AND tpdt.datum = tp.datum 
+LEFT JOIN t_sila_vetru tsv 
+	ON tsv.city = tp.city 
+	AND tsv.`date` = tp.datum 
 	
+######################################################
+######################################################	
 	
 #nabozenstvi
 
 CREATE OR REPLACE VIEW v_nabozenstvi as
-SELECT
-	r.country ,
-	sum(r.population),
-	sum(CASE WHEN r.religion = 'Christianity' THEN r.population 
-	END)AS Christianity, 
-	sum(CASE WHEN r.religion = 'Islam' THEN r.population 
-	END) AS Islam,
-	sum(CASE WHEN r.religion = 'Buddhism' THEN r.population 
-	END) AS Buddhism,
-	sum(CASE WHEN r.religion = 'Hinduism' THEN r.population 
-	END) AS Hinduism,
-	sum(CASE WHEN r.religion = 'Judaism' THEN r.population 
-	END) AS Judaism,
-	sum(CASE WHEN r.religion = 'Folk Religions' THEN r.population 
-	END) AS Folk_Religions,
-	sum(CASE WHEN r.religion = 'Other Religions' THEN r.population 
-	END) AS Other_Religions,
-	sum(CASE WHEN r.religion = 'Unaffiliated Religions' THEN r.population 
-	END) AS Unaffiliated_Religions
-FROM religions r
-WHERE `year` = 2020
-GROUP BY country
 
+SELECT * FROM v_nabozenstvi vn 
 
 SELECT 
 	country ,

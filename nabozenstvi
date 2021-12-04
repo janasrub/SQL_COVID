@@ -1,6 +1,9 @@
 #nabozenstvi
-
-CREATE OR REPLACE VIEW v_nabozenstvi as
+/*
+Nejdøíve vytvoøím pohled ve kterém budou v jednotlivých sloupcích poèty obyvatel 
+hlásících s k urèitému naboženství, z tabulky religion vybírám rok 2020, který je nejblíže covidovým datùm.
+*/
+CREATE OR REPLACE view v_nabozenstvi as
 SELECT
 	r.country ,
 	sum(r.population),
@@ -24,17 +27,19 @@ FROM religions r
 WHERE `year` = 2020
 GROUP BY country
 
+#pak z  v_nabozenstvi vytvoøím tabulku vyjadøující v % zastoupení v jednotlivých náboženstvích 
 
+CREATE OR REPLACE TABLE t_06_nabozenstvi AS
 SELECT 
-country ,
-round(Christianity / `sum(r.population)` *100,2) AS Christianity,
-round(Islam / `sum(r.population)` *100,2) AS Islam,
-round(Buddhism / `sum(r.population)` *100,2) AS Buddhism,
-round(Hinduism / `sum(r.population)` *100,2) AS Hinduism,
-round(Judaism / `sum(r.population)` *100,2) AS Judaism,
-round(Folk_Religions / `sum(r.population)` *100,2) Folk_Religions,
-round(Other_Religions / `sum(r.population)` *100,2) AS Other_Religions,
-round(Unaffiliated_Religions / `sum(r.population)` *100,2) AS Unaffiliated_Religions
+	country ,
+	round(Christianity / `sum(r.population)` *100,2) AS Christianity,
+	round(Islam / `sum(r.population)` *100,2) AS Islam,
+	round(Buddhism / `sum(r.population)` *100,2) AS Buddhism,
+	round(Hinduism / `sum(r.population)` *100,2) AS Hinduism,
+	round(Judaism / `sum(r.population)` *100,2) AS Judaism,
+	round(Folk_Religions / `sum(r.population)` *100,2) Folk_Religions,
+	round(Other_Religions / `sum(r.population)` *100,2) AS Other_Religions,
+	round(Unaffiliated_Religions / `sum(r.population)` *100,2) AS Unaffiliated_Religions
 FROM v_nabozenstvi vn 
 
 
@@ -43,10 +48,6 @@ FROM v_nabozenstvi vn
 
 
 
-round(Other_Religions / `sum(r.population)` *100,2) AS Other_Religions,
 
 
-
-
-
-
+#pokusy
