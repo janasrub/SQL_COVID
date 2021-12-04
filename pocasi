@@ -1,0 +1,94 @@
+/*Poèasí
+prùmìrná denní (nikoli noèní!) teplota
+*/
+###############################################
+CREATE OR REPLACE TABLE t_prum_denni_teplota AS
+SELECT 
+	city ,
+	round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature,
+	date(`date`) AS datum
+FROM weather w 
+WHERE city IS NOT NULL AND `time` BETWEEN '06:00' AND '21:00'
+GROUP BY city, `date`
+
+
+/*Poèasí
+poèet hodin v daném dni, kdy byly srážky nenulové
+*/
+##############################################
+#nejdøíve vytvoøím pomocnou tabulku, kde na èíslo pøevedu rain - všechny data
+CREATE OR REPLACE table t_prsi_pomocna AS
+SELECT
+	city , 
+	date(`date`) AS datum,
+	round(CAST((REPLACE (rain,' mm',''))AS float),2) AS prselo
+FROM weather w 
+
+#pak vytvoøím z pomocné tabulky druhou tabulku, ve které spoèítám kolik hodin pršelo v jednotlivých dnech
+CREATE OR REPLACE table t_prsi AS
+SELECT
+	city , 
+	datum,
+	count(prselo) AS pocet_hodin_prsi
+FROM t_prsi_pomocna tpp 
+WHERE city IS NOT NULL AND prselo > 0
+GROUP BY city, `datum`	
+
+
+/*Poèasí
+maximální síla vìtru v nárazech bìhem dne
+*/
+################################################
+CREATE OR REPLACE TABLE t_sila_vetru AS
+SELECT 
+	city,
+	`date` ,
+	max(CAST((REPLACE (gust,'km/h',''))AS integer)) AS max_naraz
+FROM weather w 
+WHERE city IS NOT null
+GROUP BY `date` , city 
+
+
+################################################
+
+	
+	
+#test	
+CREATE OR REPLACE TABLE t_prsi AS	
+SELECT
+	city ,
+	date(`date`) AS datum,
+	count(CAST((REPLACE (rain,' mm',''))AS float)) AS prselo
+	#count(CAST(rain as float)) AS prselo
+FROM weather w
+WHERE city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0
+GROUP BY city, `date`
+	
+
+
+
+# celé poèasí spojené do jednoho selectu
+CREATE OR REPLACE TABLE t_05_weather as
+SELECT tpdt.datum, tpdt.city, tpdt.temperature ,tp.prselo , tsv.max_naraz
+FROM t_prum_denni_teplota tpdt 
+LEFT JOIN t_prsi tp 
+	ON tpdt.city = tp.city 
+	AND tpdt.datum = tp.datum 
+LEFT JOIN t_sila_vetru tsv 
+	ON tsv.city = tp.city 
+	AND tsv.`date` = tp.datum 
+
+
+
+
+
+
+
+
+SELECT * FROM t_05_weather tw 
+WHERE city LIKE 'Pr%'
+	
+	
+	
+	
+	
