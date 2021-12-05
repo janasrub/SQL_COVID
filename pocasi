@@ -1,8 +1,12 @@
+
+##############################
+# 3x view a pak jedna tabulka
+
 /*Poèasí
 prùmìrná denní (nikoli noèní!) teplota
 */
 ###############################################
-CREATE OR REPLACE TABLE t_prum_denni_teplota AS
+CREATE OR REPLACE view v_prum_denni_teplota AS
 SELECT 
 	city ,
 	round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature,
@@ -16,30 +20,23 @@ GROUP BY city, `date`
 poèet hodin v daném dni, kdy byly srážky nenulové
 */
 ##############################################
-#nejdøíve vytvoøím pomocnou tabulku, kde na èíslo pøevedu rain - všechny data
-CREATE OR REPLACE table t_prsi_pomocna AS
+
+CREATE OR REPLACE VIEW v_prsi AS	
 SELECT
-	city , 
+	city ,
 	date(`date`) AS datum,
-	round(CAST((REPLACE (rain,' mm',''))AS float),2) AS prselo
-FROM weather w 
-
-#pak vytvoøím z pomocné tabulky druhou tabulku, ve které spoèítám kolik hodin pršelo v jednotlivých dnech
-CREATE OR REPLACE table t_prsi AS
-SELECT
-	city , 
-	datum,
-	count(prselo) AS pocet_hodin_prsi
-FROM t_prsi_pomocna tpp 
-WHERE city IS NOT NULL AND prselo > 0
-GROUP BY city, `datum`	
-
+	count(CAST((REPLACE (rain,' mm',''))AS float)) AS prselo
+	#count(CAST(rain as float)) AS prselo
+FROM weather w
+WHERE city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0
+GROUP BY city, `date`
+	
 
 /*Poèasí
 maximální síla vìtru v nárazech bìhem dne
 */
 ################################################
-CREATE OR REPLACE TABLE t_sila_vetru AS
+CREATE OR REPLACE view v_sila_vetru AS
 SELECT 
 	city,
 	`date` ,
@@ -51,44 +48,40 @@ GROUP BY `date` , city
 
 ################################################
 
-	
-	
-#test	
-CREATE OR REPLACE TABLE t_prsi AS	
-SELECT
-	city ,
-	date(`date`) AS datum,
-	count(CAST((REPLACE (rain,' mm',''))AS float)) AS prselo
-	#count(CAST(rain as float)) AS prselo
-FROM weather w
-WHERE city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0
-GROUP BY city, `date`
-	
-
-
-
 # celé poèasí spojené do jednoho selectu
+# tabulka  ze tøí view
 CREATE OR REPLACE TABLE t_05_weather as
-SELECT tpdt.datum, tpdt.city, tpdt.temperature ,tp.prselo , tsv.max_naraz
-FROM t_prum_denni_teplota tpdt 
-LEFT JOIN t_prsi tp 
-	ON tpdt.city = tp.city 
-	AND tpdt.datum = tp.datum 
-LEFT JOIN t_sila_vetru tsv 
-	ON tsv.city = tp.city 
-	AND tsv.`date` = tp.datum 
+SELECT vpdt.datum, vpdt.city, vpdt.temperature ,vp.prselo , vsv.max_naraz
+FROM v_prum_denni_teplota vpdt 
+LEFT JOIN v_prsi vp 
+	ON vpdt.city = vp.city 
+	AND vpdt.datum = vp.datum 
+LEFT JOIN v_sila_vetru vsv 
+	ON vsv.city = vp.city 
+	AND vsv.`date` = vp.datum 
 
-
-
-
-
-
-
-
-SELECT * FROM t_05_weather tw 
-WHERE city LIKE 'Pr%'
+/*	
+SELECT * FROM t_05_weather tw 	
+*/
+SELECT * FROM t_05_weather tw 	
 	
 	
+#Tady všechno dohromady	
+CREATE OR REPLACE view v_pocasi AS
+SELECT 
+	date(`date`) AS datum,
+	city ,
+	round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature,
+	max(CAST((REPLACE (gust,'km/h',''))AS integer)) AS max_naraz,
+	count(CAST((REPLACE (rain,' mm',''))AS float)) AS prselo
+FROM weather w
+WHERE (city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0)
+OR (city IS NOT NULL AND `time` BETWEEN '06:00' AND '21:00')
+OR (city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0)
+GROUP BY city, date(`date`)		
+
+SELECT *
+FROM v_pocasi vp 
 	
-	
+
 	

@@ -1,0 +1,68 @@
+SELECT *
+FROM t_02_tests tt 
+LEFT JOIN t_01_day_season tds 
+	ON tt.`date` = tds.`date` 
+	AND tt.country = tds.country 
+LEFT JOIN t_03_demo_economics tde 
+	ON tde.iso3 = tt.iso3 
+LEFT JOIN t_04_pocasi tp 
+	ON tp.country = tt.country 
+	AND tp.datum = tds.`date` 
+LEFT JOIN v_nabozenstvi vn 
+	ON vn.country = tde.country 
+WHERE tt.country LIKE 'Cz%'	
+
+
+
+
+
+
+
+SELECT 
+	country 
+FROM t_01_day_season tds   			#Czechia
+WHERE country LIKE 'Cz%'
+
+SELECT
+	country ,  
+	iso3 ,
+	iso ,
+	capital_city 					#Czechia, Praha
+FROM t_02_tests tt 
+WHERE country LIKE 'Cz%'
+
+SELECT 
+	iso3 , 							#Czech Republic
+	country 
+FROM t_03_demo_economics tde  
+WHERE country LIKE 'Cz%'
+
+
+SELECT 
+	datum, city, temperature		#Prague
+FROM t_04_pocasi tp 
+WHERE city LIKE 'Pr%'
+
+SELECT 								#Czech Republic
+	*
+FROM v_nabozenstvi vn 	
+left JOIN cities c 
+	ON c.country = vn.country 
+WHERE vn.country LIKE 'Cz%'	
+	
+
+WHERE country LIKE 'Cz%'
+
+SELECT *
+FROM cities c 
+WHERE country LIKE 'Cz%'
+
+SELECT 
+	datum, c.city, tp.city, temperature, c.country 		#Prague
+FROM t_04_pocasi tp 
+JOIN cities c 
+	ON c.city = tp.city 
+WHERE c.city LIKE 'Pr%'
+
+
+ 

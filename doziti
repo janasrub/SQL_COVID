@@ -1,0 +1,50 @@
+/*
+ * pøehlídla jsem, že existuje tabulka life_expectanty_diff :)
+ */
+
+
+#dožití
+#vytvoøit pohled pro rok 1965
+CREATE OR REPLACE VIEW v_rok_1965 AS
+ 	(
+ 	SELECT * 
+ 	FROM life_expectancy le 
+	WHERE `year` = '1965' AND iso3 IS NOT NULL 
+	);
+
+SELECT * FROM v_rok_1965 
+
+#vytvoøit pohled pro rok 2015
+CREATE OR REPLACE VIEW v_rok_2015 AS
+ 	(
+ 	SELECT * 
+ 	FROM life_expectancy le 
+	WHERE `year` = '2015' AND iso3 IS NOT NULL 
+	);
+
+SELECT * FROM v_rok_2015
+
+
+
+CREATE OR REPLACE TABLE T_04_life_exp_dif AS
+SELECT
+	v_65.country, 
+	round(v_15.life_expectancy - v_65.life_expectancy,2) AS life_exp_dif,
+	v_65.iso3 
+FROM v_rok_1965 AS v_65
+JOIN v_rok_2015 AS v_15
+	ON v_65.country = v_15.country
+ORDER BY country
+
+SELECT * FROM t_04_life_exp_dif tled 
+
+SELECT *
+FROM life_expectyncy_diff led 
+
+SELECT *
+FROM life_expectyncy_diff led
+LEFT JOIN t_04_life_exp_dif tled 
+ON tled.country = led.country 
+WHERE tled.country IS NOT null
+
+

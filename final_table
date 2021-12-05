@@ -8,6 +8,10 @@
 CREATE OR REPLACE TABLE t_01_day_season as
 SELECT 
 	DISTINCT date, 
+	country ,
+	confirmed ,
+	recovered ,
+	deaths ,
 	CASE
 	WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3'
 	WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0'
@@ -105,16 +109,19 @@ SELECT * FROM t_03_demo_economics tde
 # vytvoøení ètvrté tabulky t_04_pocasi  pozor hlavní mìsta
 CREATE OR REPLACE TABLE t_04_pocasi AS
 SELECT 
-	date(`date`) AS datum,
-	city ,
-	round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature,
-	max(CAST((REPLACE (gust,'km/h',''))AS integer)) AS max_naraz,
-	count(CAST((REPLACE (rain,' mm',''))AS float)) AS prselo
+	date(w.`date`) AS datum,
+	w.city ,
+	c.country ,
+	round(avg(cast ((REPLACE (w.temp,'°c',' ')) AS integer)),2) AS temperature,
+	max(CAST((REPLACE (w.gust,'km/h',''))AS integer)) AS max_naraz,
+	count(CAST((REPLACE (w.rain,' mm',''))AS float)) AS prselo
 FROM weather w
-WHERE (city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0)
-OR (city IS NOT NULL AND `time` BETWEEN '06:00' AND '21:00')
-OR (city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0)
-GROUP BY city, date(`date`)		
+JOIN cities c 
+	ON w.city = c.city 
+WHERE (w.city IS NOT NULL AND CAST((REPLACE (w.rain,' mm',''))AS float) > 0)
+OR (w.city IS NOT NULL AND w.`time` BETWEEN '06:00' AND '21:00')
+OR (w.city IS NOT NULL AND CAST((REPLACE (w.rain,' mm',''))AS float) > 0)
+GROUP BY w.city, date(w.`date`)		
 
 SELECT *
 FROM t_04_pocasi tp 
