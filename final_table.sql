@@ -1,22 +1,22 @@
+#PROJEKT ENGETO DATOVA AKADEMIE 2021 - ZPRACOVANI DAT O COVIDU
 
 
-
+#Nejdøíve vytvoøit jednotlivé tabulky
 
 #vytvoøení první tabulky  t_01_day_season
 #èasové promìnné dohromady s tabulkou covid pøírùstky
+#nový sloupec season znaèí roèní období (0 jaro......)
+#nový sloupec weekend: 1 víkend, 0 pracovní den;		
 
 CREATE OR REPLACE TABLE t_01_day_season as
 SELECT 
 	DISTINCT date, 
 	CASE
-	WHEN `date` BETWEEN '2020-01-22' AND '2020-03-19' THEN '3'
-	WHEN `date` BETWEEN '2020-03-20' AND '2020-06-20' THEN '0'
-	WHEN `date` BETWEEN '2020-06-21' AND '2020-09-20' THEN '1'
-	WHEN `date` BETWEEN '2020-09-22' AND '2020-12-20' THEN '2'
-	WHEN `date` BETWEEN '2020-12-21' AND '2021-03-19' THEN '3'
-	WHEN `date` BETWEEN '2021-03-20' AND '2020-06-20' THEN '0'
-	ELSE 'error'
-	END AS season,
+		WHEN date_format(`date`, '%m-%d') BETWEEN '03-21' AND '06-20' THEN '0'
+		WHEN date_format(`date`, '%m-%d') BETWEEN '06-21' AND '09-20' THEN '1'
+		WHEN date_format(`date`, '%m-%d') BETWEEN '09-21' AND '12-19' THEN '2'
+		ELSE '3'
+		END AS season,
 	CASE 
 		WHEN weekday(`date`) IN (5,6) THEN '1'
 		ELSE '0'
@@ -26,11 +26,15 @@ ORDER BY `date`
 ;
 
 
-
-
 ##############################################################################
+
+
 #vytvoøení druhé tabulky t_02_tests
-#spojení s testy, výpoèet, hustota obyvatel, prùmìrný vìk 2018,
+#spojení s testy, výpoèet, hustota obyvatel, prùmìrný vìk 2018
+#nový sloupec percentagge_confirmed, procentuální podíl nakažených v populaci
+#nový sloupec percentage_tests_performed, procentuální podíl uzdravených v populaci
+#nìkteré zemì v tabulce covid19_tests mají jiný název než v tabulce covid19_basic_differences
+
 
 CREATE OR REPLACE TABLE t_02_tests AS 
 SELECT
@@ -53,25 +57,14 @@ LEFT JOIN covid19_tests ct
 	ON cc.iso3 = ct.ISO  	
 	AND cbd.`date` = ct.`date` 
 WHERE c.population IS NOT NULL 
+;
 
-SELECT * FROM t_02_tests tt 
-	
-SELECT * FROM countries c 
-
-SELECT *
-FROM covid19_tests ct 
-WHERE country LIKE 'Cz%'
 
 #################################################
-SELECT * FROM covid19_basic_differences cbd 
-WHERE country LIKE 'Cz%'
 
-SELECT *
-FROM t_01_day_season tds 
-#################################################
 
 #vytvoøení tøetí tabulky t_03_demo_economics
-#country, rok, hustota zalidneni, GDP, GINI, dìtská umrtnost, life_expectancy_diff
+#country, rok, hustota zalidneni, GDP, GINI, dìtská umrtnost,life_expectancy_diff
 CREATE OR REPLACE TABLE t_03_demo_economics as
 SELECT
 	d.country ,
@@ -81,7 +74,7 @@ SELECT
 	e.gini ,
 	d.mortaliy_under5, 
 	led.life_expectancy_diff,
-	c.iso3 
+	c.iso3
 FROM demographics d 
 JOIN countries c 
 	ON d.country = c.country 
@@ -95,36 +88,33 @@ WHERE
 	AND c.region_in_world IS NOT NULL
 	AND d.`year` = 2019
 	AND led.country IS NOT NULL 
-	
-	
-SELECT * FROM t_03_demo_economics tde 	
-	
 
-##############################
+	
+##########################################################
 
+	
 # vytvoøení ètvrté tabulky t_04_pocasi  pozor hlavní mìsta
 CREATE OR REPLACE TABLE t_04_pocasi AS
 SELECT 
-	date(`date`) AS datum,
-	city ,
-	round(avg(cast ((REPLACE (temp,'°c',' ')) AS integer)),2) AS temperature,
-	max(CAST((REPLACE (gust,'km/h',''))AS integer)) AS max_naraz,
-	count(CAST((REPLACE (rain,' mm',''))AS float)) AS prselo
+	date(w.`date`) AS datum,
+	w.city ,
+	c.country ,
+	round(avg(cast ((REPLACE (w.temp,'°c',' ')) AS integer)),2) AS temperature,
+	max(CAST((REPLACE (w.gust,'km/h',''))AS integer)) AS max_naraz,
+	count(CAST((REPLACE (w.rain,' mm',''))AS float)) AS prselo
 FROM weather w
-WHERE (city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0)
-OR (city IS NOT NULL AND `time` BETWEEN '06:00' AND '21:00')
-OR (city IS NOT NULL AND CAST((REPLACE (rain,' mm',''))AS float) > 0)
-GROUP BY city, date(`date`)		
+JOIN cities c 
+	ON w.city = c.city 
+WHERE (w.city IS NOT NULL AND CAST((REPLACE (w.rain,' mm',''))AS float) > 0)
+OR (w.city IS NOT NULL AND w.`time` BETWEEN '06:00' AND '21:00')
+OR (w.city IS NOT NULL AND CAST((REPLACE (w.rain,' mm',''))AS float) > 0)
+GROUP BY w.city, date(w.`date`)		
 
-SELECT *
-FROM t_04_pocasi tp 
 
-	
-######################################################
 ######################################################	
 	
-#nabozenstvi    (v religion czech rep)
-#vytvoøení páte tabulky
+
+#vytvoøení VIEW v_nabozenstvi 
 #vytvoøím pohled ve kterém budou v jednotlivých sloupcích poèty obyvatel 
 #hlásících s k urèitému naboženství, z tabulky religion vybírám rok 2020, který je nejblíže covidovým datùm.
 
@@ -152,5 +142,46 @@ WHERE `year` = 2020
 GROUP BY country	
 	
 
-SELECT * FROM v_nabozenstvi vn 
+
+#vytvoøení finální tabulky
+CREATE OR REPLACE TABLE covid_final AS
+SELECT 
+	tt.`date` ,
+	tds.weekend ,
+	tds.season ,
+	tt.country ,
+	tt.confirmed ,
+	tt.percentagge_confirmed ,
+	tt.tests_performed ,
+	tt.percentage_tests_performed ,
+	tde.population_density ,
+	tde.GDP ,
+	tde.gini ,
+	tde.mortaliy_under5 ,
+	tt.median_age_2018 ,
+	tde.life_expectancy_diff,
+	vn.Christianity ,
+	vn.Islam ,
+	vn.Buddhism ,
+	vn.Hinduism ,
+	vn.Judaism ,
+	vn.Folk_Religions ,
+	vn.Other_Religions ,
+	vn.Unaffiliated_Religions ,
+	tp.temperature ,
+	tp.prselo AS rain,
+	tp.max_naraz AS max_gust
+FROM t_02_tests tt 
+LEFT JOIN t_01_day_season tds 
+	ON tt.`date` = tds.`date` 
+LEFT JOIN t_03_demo_economics tde 
+	ON tde.iso3 = tt.iso3 
+LEFT JOIN t_04_pocasi tp 
+	ON tp.country = tt.country 
+	AND tp.datum = tds.`date` 
+LEFT JOIN v_nabozenstvi vn 
+	ON vn.country = tde.country 
+	
+	
+SELECT * FROM covid_final cf 
 

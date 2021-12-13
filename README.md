@@ -1,9 +1,11 @@
 # SQL_COVID
-SQL_COVID_ENGETO my first projekt in SQL
+SQL_COVID_ENGETO - my first projekt in SQL
 
-Zadání: Od Vašeho kolegy statistika jste obdrželi následující email:
+## Zadání: 
 
-##########
+Od Vašeho kolegy statistika jste obdrželi následující email:
+
+#############################################################################
 
 Dobrý den,
 
@@ -32,6 +34,151 @@ V případě nejasností se mě určitě zeptejte.
 
 S pozdravem, Student (a.k.a. William Gosset)
 
-###############################
+#############################################################################
 
 Výstup: Pomozte Vašemu kolegovi s daným úkolem. Výstupem by měla být tabulka na databázi, ze které se požadovaná data dají získat jedním selectem. Tabulku pojmenujte t_{jméno}_{příjmení}_projekt_SQL_final. Na svém GitHub účtu vytvořte repozitář (může být soukromý), kam uložíte všechny informace k projektu - hlavně SQL skript generující výslednou tabulku, popis mezivýsledků, informace o výstupních datech (například kde chybí hodnoty apod.). 
+
+##########################################################################################################################################################
+
+# Návod jak vytvořit požadovanou tabulku
+
+V souboru **final table** jsou uloženy všechny potřebné dotazy k vytvoření finální tabulky.
+
+Postupně vytvořit tabulky a view:
+
+**t_01_day_season**
+
+**t_02_tests**
+
+**t_03_demo_economics**
+
+**t_04_pocasi**
+
+**v_nabozenstvi**
+
+a pak vytvořit celkovou tabulku **covid_final** se všemi požadovanými sloupci
+
+
+
+
+
+#############################################################################
+
+
+
+# Postup mé práce
+
+## Časové proměnné
+
+1. Binární proměnná pro víkend / pracovní den
+2. Roční období daného dne (zakódujte prosím jako 0 až 3)
+
+--------------------------------------------------------------------------------
+
+Jako základ jsem použila tabulku **covid19_basic_differences cbd**
+
+
+
+Binární proměnná pro víkend / pracovní den
+
+Nejdříve jsem pomocí funkce weekday vytvořila nový sloupec **weekend**, kde víkendové dny jsou označené jako 1 a pracovní dny 0
+
+Roční období daného dne (zakódujte prosím jako 0 až 3)
+
+V prvním návrhu jsou vytvořila nový sloupec **season** a pomocí podmínek definovala roční období přesně podle data včetně roku a přiřadila čísla dle pořadí 0-jaro ....3-zima.
+
+V druhém návrhu jsem tento sloupec vytvořila stejným způsobem ale aby dotaz fungoval i v příštích letech, tak jsem vliv roku odebrala pomocí funkce date_format a určila jsem rozhodují datumy pro začátek ročních období takto:
+
+jaro 21.3.
+léto 21.6	
+podzim 22.9
+zima 21.12.
+
+Každou proměnou jsem tvořila zvlášt a pak jsem je zkombinovala v jednom dotazu.
+
+Nakonec je vytvořena tabulka **t_01_day_season**
+
+Dotaz je uložen v souboru **10_pomocná_tab_casove_promenne**
+
+
+
+## Vytvoření tabulky s počty nakažených a testovaných
+
+V zadání je požadavek na sledování denního přírustku nakažených v jednotlivých zemích, počty provedených testů a počet obyvatel daného státu. Z těchto tří proměnných vytvořit vhodnou proměnnou.
+
+Jako vhodnou proměnnou mě napadlo vytvořit procentuální podíl nakažených a procentuální podíl testovaných v jednotlivých zemích.
+
+Data o covidu jsou čerpána z tabulek: **covid19_basic_differences, covid19_tests**. Počet obyvatel daného státu **population** je z tabulky: **countries**
+
+Protože v tabulce **covid19_basic_differences** a **covid19_tests** jména některých zemí rozdílná např. Czechia a Czech Republic použila jsem pro spojení pomocnou tabulku country_codes a k propojení použila sloupce ISO a ISO3. Do tabulky jsem připojila sloupec median_age_2018, který je tabulce **countries**.
+
+Nakonec je vytvořena tabulka **t_02_tests**
+
+Dotaz je uložen v souboru **20_pomocna_tab_testovani.sql**
+
+
+
+## Vytvoření tabulky s demografickými a ekonomickými daty
+
+Data jsou čerpána z tabulek: 
+
+**demographics** - countries, year, population, mortality_under5 - vybírám rok 2019, v roce 2020 nejsou data k mortalitě
+
+**countries** - rozloha > k vypočtení hustoty zalidnění
+
+**economies** - z tabulky beru poslední údaje z roku 2020, GDP,  GINI - některé země neuváději, 
+
+**life_expectyncy_diff**
+
+Vzniká sloupec vypočítáný sloupec population_density
+
+Nakonec je vytvořena tabulka **t_03_demo_economics**
+
+Dotaz je uložen v souboru **30_pomocna_tab_demografy.sql**
+
+
+
+## Vytvoření tabulky počasí
+
+Data jsou čerpána z tabulky **weather**
+
+Nejdříve jsem vytvořila dotazy pro jednotlivé sloupce: průměrná denní teplota, počet hodin bez srážek, maximální síla nárazu větru. 
+
+Využila jsem funkce REPLACE a CAST. 
+
+Pak jsem vytvořila z každého dotazu view, které jsem spojila do jedné tabulky.
+
+Později jsem tuhle verzi opustila a vytvořila všechny tři sloupce jedním dotazem a uložila do tabulky.
+
+Protože v tabulce waether chybí country a je pouze city spojila jsem weather s tabulkou cities, abych mohla doplnit sloupec country pro další spojování.
+
+Nakonec je vytvořena tabulka  **t_04_pocasi**
+
+Dotaz je uložen v souboru **40_pomocna_tab_pocasi**
+
+
+
+## Vytvoření tabulky náboženství
+
+Data jsou čerpána z tabulky **religions**. V tabulce jsou data za rok 2010, 2020, 2030, 2040, 2050. Zřejmě výhled do budoucna. Vybírám data současné 2020, které se mají nejblíže ke covidovým datům.
+
+Nejdříve jsem vytvořila tabulku, kde jsem měla jednotlivé náboženstí v řádcích. 
+
+Teprve při spojování tabulek mi docvaklo, že to takhle nespojím a pomocí CASE jsem vytvořila tabulku se sloupci.
+
+Nakonec je vytvořeno view  **v_nabozenstvi**
+
+Dotaz je uložen v souboru **50_pomocne_view_nabozenstvi**
+
+
+
+## **Vytvoření závěrečné tabulky**
+
+Spojila jsem všechny tabulky dohromady,
+
+jako základní tabulku jsem použila t_02_tests, která obsahuje všechna covidová data a k ní jsem připojovala ostatní tabulky.
+
+
+
+
+

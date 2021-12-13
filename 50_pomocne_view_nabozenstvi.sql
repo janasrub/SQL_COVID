@@ -3,6 +3,25 @@
 Nejdøíve vytvoøím pohled ve kterém budou v jednotlivých sloupcích poèty obyvatel 
 hlásících s k urèitému naboženství, z tabulky religion vybírám rok 2020, který je nejblíže covidovým datùm.
 */
+
+#nabozenstvi
+
+#SELECT DISTINCT `year` FROM religions
+
+SELECT r. country , r.religion, round(population /relig_suma.celkem_pop*100,2) 
+FROM religions r 
+JOIN 
+	(SELECT r.country , r.`year` ,sum(r.population) AS celkem_pop 						#vnoreným selektem poèítám sumu jednotlivých náboženství v roce 2020, abych ji pak mohla použít pro procentuální podíl jednotlivých náboženství
+		FROM religions r 
+		WHERE `year` = '2020'
+		GROUP BY r.country 
+	) AS relig_suma
+ON r.country = relig_suma.country
+AND r.`year` = relig_suma.`year`
+AND r.population > 0
+
+
+#pøevod na sloupce
 CREATE OR REPLACE view v_nabozenstvi as
 SELECT
 	r.country ,
@@ -27,30 +46,34 @@ FROM religions r
 WHERE `year` = 2020
 GROUP BY country
 
-#pak z  v_nabozenstvi vytvoøím tabulku vyjadøující v % zastoupení v jednotlivých náboženstvích 
-
-CREATE OR REPLACE TABLE t_06_nabozenstvi AS
-SELECT 
-	country ,
-	round(Christianity / `sum(r.population)` *100,2) AS Christianity,
-	round(Islam / `sum(r.population)` *100,2) AS Islam,
-	round(Buddhism / `sum(r.population)` *100,2) AS Buddhism,
-	round(Hinduism / `sum(r.population)` *100,2) AS Hinduism,
-	round(Judaism / `sum(r.population)` *100,2) AS Judaism,
-	round(Folk_Religions / `sum(r.population)` *100,2) Folk_Religions,
-	round(Other_Religions / `sum(r.population)` *100,2) AS Other_Religions,
-	round(Unaffiliated_Religions / `sum(r.population)` *100,2) AS Unaffiliated_Religions
-FROM v_nabozenstvi vn 
-
-SELECT * FROM t_06_nabozenstvi tn 
+SELECT * FROM v_nabozenstvi vn 
 
 
 
 
-SELECT *
-FROM religions r 
 
 
 
 
-#pokusy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

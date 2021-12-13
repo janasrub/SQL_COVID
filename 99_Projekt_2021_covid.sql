@@ -247,7 +247,7 @@ SELECT
 	c.median_age_2018 
 FROM economies e 
 JOIN countries c 
-	ON e.country = c.country 
+	ON e.country = c.country
 JOIN demographics d 
 	ON d.country = e.country 
 	AND d.`year` = 2019

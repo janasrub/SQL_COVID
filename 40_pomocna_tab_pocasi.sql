@@ -82,6 +82,25 @@ GROUP BY city, date(`date`)
 
 SELECT *
 FROM v_pocasi vp 
+
+#vytvoøení tabulky
+CREATE OR REPLACE TABLE t_04_pocasi AS
+SELECT 
+	date(w.`date`) AS datum,
+	w.city ,
+	c.country ,
+	round(avg(cast ((REPLACE (w.temp,'°c',' ')) AS integer)),2) AS temperature,
+	max(CAST((REPLACE (w.gust,'km/h',''))AS integer)) AS max_naraz,
+	count(CAST((REPLACE (w.rain,' mm',''))AS float)) AS prselo
+FROM weather w
+JOIN cities c 
+	ON w.city = c.city 
+WHERE (w.city IS NOT NULL AND CAST((REPLACE (w.rain,' mm',''))AS float) > 0)
+OR (w.city IS NOT NULL AND w.`time` BETWEEN '06:00' AND '21:00')
+OR (w.city IS NOT NULL AND CAST((REPLACE (w.rain,' mm',''))AS float) > 0)
+GROUP BY w.city, date(w.`date`)		
+
+
 	
 
 	
